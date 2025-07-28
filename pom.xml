@@ -16,14 +16,18 @@
     <module>services/database-service</module>
   </modules>
 
+  <dependencyManagement>
+    <dependencies>
 
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>2.7.18</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
 
-  <dependencies>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>3.8.1</version>
-      <scope>test</scope>
-    </dependency>
-  </dependencies>
+    </dependencies>
+  </dependencyManagement>
+
 </project>

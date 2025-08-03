@@ -1,5 +1,9 @@
 package com.outfit.imagestore.controllers;
 
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -8,8 +12,13 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
+
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,6 +32,7 @@ import com.outfit.imagestore.ImageMetadata;
 public class ImageStoreController {
 
     private final Path imageDir = Paths.get("images"); // local folder
+    private final Path cacheDir = Paths.get("cache");
 
     @GetMapping("/images")
     public ResponseEntity<List<ImageMetadata>> getImages(
@@ -61,19 +71,61 @@ public class ImageStoreController {
     }
 
     @GetMapping("/image/{filename}")
-    public ResponseEntity<Resource> getImage(@PathVariable("filename") String filename) throws IOException {
-        Path filePath = imageDir.resolve(filename).normalize();
-        Resource resource = new UrlResource(filePath.toUri());
+    public ResponseEntity<byte[]> getCompressedThumbnail(@PathVariable("filename") String filename) throws IOException {
+        Path cachedPath = cacheDir.resolve(filename);
 
-        if (!resource.exists() || !resource.isReadable()) {
-            System.out.println("Requested path for image " + filePath);
+        // If cached version exists, serve it directly
+        if (Files.exists(cachedPath)) {
+            byte[] cachedBytes = Files.readAllBytes(cachedPath);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                    .contentType(MediaType.IMAGE_JPEG)
+                    .body(cachedBytes);
+        }
+
+        // Otherwise, load and process the original
+        Path filePath = imageDir.resolve(filename).normalize();
+        if (!Files.exists(filePath)) {
             return ResponseEntity.notFound().build();
         }
 
-        return ResponseEntity.ok()
-            .contentType(MediaType.IMAGE_JPEG) // or detect dynamically
-            .body(resource);
+        BufferedImage original = ImageIO.read(filePath.toFile());
+        if (original == null) {
+            return ResponseEntity.badRequest().build();
+        }
 
+        // Resize to medium (600px width)
+        int targetWidth = 800;
+        int targetHeight = (original.getHeight() * targetWidth) / original.getWidth();
+        Image scaled = original.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
+
+        BufferedImage resized = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = resized.createGraphics();
+        g.drawImage(scaled, 0, 0, null);
+        g.dispose();
+
+        // Compress to JPEG (~80% quality)
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageWriter jpgWriter = ImageIO.getImageWritersByFormatName("jpeg").next();
+        ImageWriteParam jpgWriteParam = jpgWriter.getDefaultWriteParam();
+        jpgWriteParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+        jpgWriteParam.setCompressionQuality(0.8f);
+
+        try (ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+            jpgWriter.setOutput(ios);
+            jpgWriter.write(null, new IIOImage(resized, null, null), jpgWriteParam);
+        }
+        jpgWriter.dispose();
+
+        byte[] compressedBytes = baos.toByteArray();
+
+        // Save to cache for next time
+        Files.write(cachedPath, compressedBytes);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                .contentType(MediaType.IMAGE_JPEG)
+                .body(compressedBytes);
     }
 
 

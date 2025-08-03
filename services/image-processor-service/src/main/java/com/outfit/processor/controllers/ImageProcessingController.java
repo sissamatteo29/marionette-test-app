@@ -4,10 +4,8 @@ import java.awt.image.BufferedImage;
 import java.awt.image.ConvolveOp;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
@@ -17,10 +15,13 @@ import javax.imageio.ImageIO;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
+
+import com.outfit.common.ProcessedImageResponse;
 
 @RestController
 @RequestMapping("/process")
@@ -31,20 +32,43 @@ public class ImageProcessingController {
 
     private final ExecutorService executor = Executors.newFixedThreadPool(4);
 
-    @GetMapping("/one")
-    public ResponseEntity<byte[]> processSingleImage(@RequestParam("filename") String fileName) {
+    @GetMapping("/image/{fileName}")
+    public ResponseEntity<byte[]> getProcessedImage(@PathVariable String fileName) {
         try {
-            ProcessedImageResponse processed = fetchAndProcess(fileName);
-
-            byte[] imageBytes = Base64.getDecoder().decode(processed.getBase64Content());
+            byte[] processedBytes = processImageBytes(fileName);
 
             return ResponseEntity.ok()
-                    .header("Content-Disposition", "inline; filename=\"" + fileName + "\"")
                     .header("Content-Type", "image/jpeg")
-                    .body(imageBytes);
+                    .body(processedBytes);
 
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    private byte[] processImageBytes(String fileName) {
+        try {
+            String imageUrl = imageStoreBaseUrl + "/image/" + fileName;
+            Resource resource = restTemplate.getForObject(imageUrl, Resource.class);
+
+            if (resource == null) {
+                throw new RuntimeException("Could not fetch image: " + fileName);
+            }
+
+            try (InputStream in = resource.getInputStream(); ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+                BufferedImage image = ImageIO.read(in);
+
+                BufferedImage adjusted = adjustBrightnessContrast(image, 1.1, 1);
+                BufferedImage saturated = adjustSaturation(adjusted, 1.2);
+                BufferedImage sharpened = applySharpen(saturated);
+
+                ImageIO.write(sharpened, "jpeg", baos);
+                return baos.toByteArray();
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error processing image " + fileName, e);
         }
     }
 
@@ -62,51 +86,16 @@ public class ImageProcessingController {
             return ResponseEntity.ok(List.of());
         }
 
-        // 2. Process images in parallel
-        List<CompletableFuture<ProcessedImageResponse>> futures = metadata.stream()
-                .map(img -> CompletableFuture.supplyAsync(() -> fetchAndProcess(img.get("fileName")), executor))
-                .collect(Collectors.toList());
-
-        // 3. Collect results
-        List<ProcessedImageResponse> results = futures.stream()
-                .map(CompletableFuture::join)
+        List<ProcessedImageResponse> results = metadata.stream()
+                .map(img -> {
+                    String fileName = img.get("fileName");
+                    // URL that triggers on-demand processing
+                    String url = "http://localhost:8081/process/image/" + fileName;
+                    return new ProcessedImageResponse(fileName, url);
+                })
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(results);
-    }
-
-    private ProcessedImageResponse fetchAndProcess(String fileName) {
-        try {
-            String imageUrl = imageStoreBaseUrl + "/image/" + fileName;
-            Resource resource = restTemplate.getForObject(imageUrl, Resource.class);
-
-            if (resource == null) {
-                throw new RuntimeException("Could not fetch image: " + fileName);
-            }
-
-            try (InputStream in = resource.getInputStream()) {
-                BufferedImage image = ImageIO.read(in);
-
-                // Step 1: Brightness and contrast adjustment
-                BufferedImage adjusted = adjustBrightnessContrast(image, 1.2, 1.1);
-
-                // Step 2: Saturation boost
-                BufferedImage saturated = adjustSaturation(adjusted, 1.3);
-
-                // Step 3: Sharpen filter
-                BufferedImage sharpened = applySharpen(saturated);
-
-                // Encode processed image to Base64
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                ImageIO.write(sharpened, "jpeg", baos);
-                String base64 = Base64.getEncoder().encodeToString(baos.toByteArray());
-
-                return new ProcessedImageResponse(fileName, base64);
-            }
-
-        } catch (Exception e) {
-            throw new RuntimeException("Error processing image " + fileName, e);
-        }
     }
 
     private BufferedImage adjustBrightnessContrast(BufferedImage img, double brightness, double contrast) {

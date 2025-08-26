@@ -5,12 +5,14 @@ import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -18,6 +20,9 @@ import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
 
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -28,30 +33,46 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.outfit.imagestore.ImageMetadata;
 
+import jakarta.annotation.PostConstruct;
+
 @RestController
 public class ImageStoreController {
 
-    private final Path imageDir = Paths.get("images"); // local folder
-    private final Path cacheDir = Paths.get("cache");
+    private final ResourceLoader resourceLoader;
+    Path cacheDir = Paths.get("/app/cache");
+    
+    public ImageStoreController(ResourceLoader resourceLoader) {
+        this.resourceLoader = resourceLoader;
+    }
+
+    @PostConstruct
+    public void init() throws IOException {
+        
+        // Ensure cache directory exists
+        if (!Files.exists(cacheDir)) {
+            Files.createDirectories(cacheDir);
+            System.out.println("Created cache directory: " + cacheDir.toAbsolutePath());
+        } else {
+            System.out.println("Cache directory already exists: " + cacheDir.toAbsolutePath());
+        }
+    }
+
 
     @GetMapping("/images")
     public ResponseEntity<List<ImageMetadata>> getImages(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "4") int size) throws IOException {
 
-        if (!Files.exists(imageDir)) {
-            return ResponseEntity.ok(List.of());
-        }
+        System.out.println("Received request for image links on page " + page);
 
-        List<String> allFileNames = new ArrayList<>();
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(imageDir)) {
-            for (Path entry : stream) {
-                String name = entry.getFileName().toString().toLowerCase();
-                if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg")) {
-                    allFileNames.add(name);
-                }
-            }
-        }
+
+        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        Resource[] resources = resolver.getResources("classpath:static/images/*.{jpg,jpeg,png}");
+
+        List<String> allFileNames = Arrays.stream(resources)
+            .map(resource -> resource.getFilename())
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
 
         // Apply pagination
         int fromIndex = page * size;
@@ -72,6 +93,8 @@ public class ImageStoreController {
 
     @GetMapping("/image/{filename}")
     public ResponseEntity<byte[]> getCompressedThumbnail(@PathVariable("filename") String filename) throws IOException {
+
+        System.out.println("Received a request for the image " + filename);
         Path cachedPath = cacheDir.resolve(filename);
 
         // If cached version exists, serve it directly
@@ -83,13 +106,15 @@ public class ImageStoreController {
                     .body(cachedBytes);
         }
 
+        System.out.println("The file did not exist in the cache, loading it from static resources");
         // Otherwise, load and process the original
-        Path filePath = imageDir.resolve(filename).normalize();
-        if (!Files.exists(filePath)) {
+        Resource imageResource = resourceLoader.getResource("classpath:static/images/" + filename);
+        if (!imageResource.exists()) {
+            System.out.println("Impossible to find the file on the classpath, retunring nothing");
             return ResponseEntity.notFound().build();
         }
 
-        BufferedImage original = ImageIO.read(filePath.toFile());
+        BufferedImage original = ImageIO.read(imageResource.getInputStream());
         if (original == null) {
             return ResponseEntity.badRequest().build();
         }

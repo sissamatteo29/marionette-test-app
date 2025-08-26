@@ -1,0 +1,41 @@
+# imagestore-service.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imagestore-service
+  namespace: outfit-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: imagestore-service
+  template:
+    metadata:
+      labels:
+        app: imagestore-service
+    spec:
+      containers:
+      - name: imagestore-service
+        image: imagestore-service:latest
+        imagePullPolicy: Never  # For local development
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "kubernetes"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: imagestore-service
+  namespace: outfit-app
+  labels:
+    monitored: "true"
+spec:
+  selector:
+    app: imagestore-service
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP

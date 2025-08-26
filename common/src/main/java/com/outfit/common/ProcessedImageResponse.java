@@ -2,7 +2,7 @@ package com.outfit.common;
 
 public class ProcessedImageResponse {
     private final String fileName;
-    private final String url;
+    private String url;
 
     public ProcessedImageResponse(String fileName, String url) {
         this.fileName = fileName;
@@ -16,4 +16,8 @@ public class ProcessedImageResponse {
     public String getUrl() {
         return url;
     }
+
+    public void setUrl(String newUrl) {
+        this.url = newUrl;
+    } 
 }

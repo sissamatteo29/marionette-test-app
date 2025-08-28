@@ -14,7 +14,7 @@ cd services
 
 # Build image-processor-service
 echo "Building image-processor-service..."
-cd image-processor-marionette-marionette
+cd image-processor-service-marionette
 mvn clean package
 docker build -t image-processor-service:latest .
 cd ..

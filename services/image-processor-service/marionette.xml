@@ -1,6 +1,6 @@
 
 <marionetteConfig>
-  <microserviceName>image-processor-marionette</microserviceName>
+  <microserviceName>image-processor-service</microserviceName>
   <srcRoot>src/main/java</srcRoot>
   <injectCodeRoot>com/outfit/processor/__marionette</injectCodeRoot>
 

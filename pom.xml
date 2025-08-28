@@ -26,6 +26,7 @@
     <module>services/ui-service</module>
     <module>services/image-processor-service</module>
     <module>services/imagestore-service</module>
+    <module>services/image-processor-marionette-marionette</module>
   </modules>
 
 </project>

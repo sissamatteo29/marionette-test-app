@@ -277,13 +277,13 @@
             <div class="col-lg-3 col-md-4 col-sm-6" th:each="img : ${images}">
                 <div class="card outfit-card">
                     <div class="position-relative">
-                        <img th:src="${img.url}" class="card-img-top outfit-image" alt="Stylish outfit">
+                        <img th:src="${img.imageUrl}" class="card-img-top outfit-image" alt="Stylish outfit">
                         <div class="image-overlay">
                             <i class="fas fa-search-plus overlay-icon"></i>
                         </div>
                     </div>
                     <div class="card-body card-body-custom">
-                        <p class="outfit-filename" th:text="${img.fileName}">Outfit Name</p>
+                        <p class="outfit-filename" th:text="${img.imageName}">Outfit Name</p>
                     </div>
                 </div>
             </div>

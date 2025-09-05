@@ -9,7 +9,7 @@ public class ImageProcessorServiceProcessImageAdapterConfig {
     private final String imageProcessorServiceUrl;
 
     public ImageProcessorServiceProcessImageAdapterConfig(
-            @Value("${image.processor.service.url:http://image-processor-service:8081}") String imageProcessorServiceUrl) {
+            @Value("${image.processor.service.url:http://localhost:8081}") String imageProcessorServiceUrl) {
         this.imageProcessorServiceUrl = imageProcessorServiceUrl;
     }
 

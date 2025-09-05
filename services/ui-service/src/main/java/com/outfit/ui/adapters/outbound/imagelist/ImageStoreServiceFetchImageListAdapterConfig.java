@@ -7,14 +7,10 @@ import org.springframework.stereotype.Component;
 public class ImageStoreServiceFetchImageListAdapterConfig {
 
     @Value("${imagestore.service.url:http://localhost:8082}")
-    private final String imageStoreServiceUrl;
+    private String imageStoreServiceUrl;
 
     public String getImageStoreServiceUrl() {
         return imageStoreServiceUrl;
-    }
-
-    public ImageStoreServiceFetchImageListAdapterConfig(String imageStoreServiceUrl) {
-        this.imageStoreServiceUrl = imageStoreServiceUrl;
     }
     
 }

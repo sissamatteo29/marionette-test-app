@@ -1,2 +1,14 @@
 /home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/App.java
-/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/controllers/HomeController.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/adapters/inbound/HomeController.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/adapters/outbound/imagelist/ImageStoreServiceFetchImageListAdapter.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/adapters/outbound/imagelist/ImageStoreServiceFetchImageListAdapterConfig.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/adapters/outbound/processimage/ImageProcessorServiceProcessImageAdapter.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/adapters/outbound/processimage/ImageProcessorServiceProcessImageAdapterConfig.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/usecases/inbound/FetchProcessedImageUseCase.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/usecases/inbound/PrepareImageGalleryPageUseCase.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/usecases/inbound/imagenames/GalleryImageItem.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/usecases/inbound/imagenames/GalleryPageResponse.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/usecases/inbound/imagenames/PrepareImageGalleryPageUseCaseImpl.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/usecases/inbound/processimage/FetchProcessedImageUseCaseImpl.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/usecases/outbound/imagelist/FetchImageListGateway.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/ui-service/src/main/java/com/outfit/ui/usecases/outbound/processimage/ProcessImageGateway.java

@@ -1,5 +1,10 @@
 package com.outfit.imagestore.adapters.outbound.imagerepo;
 
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -8,6 +13,12 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 
 import com.outfit.imagestore.usecases.outbound.imagerepo.ImageRepository;
 
@@ -19,6 +30,12 @@ public class ImageRepositoryAdapter implements ImageRepository {
     private final AtomicInteger imageCounter;
     private final Path imagesDirectory;
     private final Pattern imageFilePattern;
+
+    // Configuration for auto-resizing
+    private static final int MAX_WIDTH = 800; // Max width in pixels
+    private static final int MAX_HEIGHT = 800; // Max height in pixels
+    private static final float JPEG_QUALITY = 0.80f; // 80% quality
+    private static final long MAX_FILE_SIZE = 500 * 1024; // 500KB target size
 
     public ImageRepositoryAdapter(ImageRepositoryConfig imageRepositoryConfig) {
         this.imageRepositoryConfig = imageRepositoryConfig;
@@ -61,8 +78,8 @@ public class ImageRepositoryAdapter implements ImageRepository {
         try (Stream<Path> files = Files.list(imagesDirectory)) {
             return files
                     .filter(Files::isRegularFile) // Only files, not directories
-                    .map(path -> path.getFileName().toString()) 
-                    .filter(fileName -> imageFilePattern.matcher(fileName).matches()) 
+                    .map(path -> path.getFileName().toString())
+                    .filter(fileName -> imageFilePattern.matcher(fileName).matches())
                     .toList();
         }
     }
@@ -99,25 +116,103 @@ public class ImageRepositoryAdapter implements ImageRepository {
     @Override
     public int putImage(byte[] imageData, String originalExtension) {
         try {
+            // Process the image (resize if needed, compress)
+            byte[] processedImageData = processImage(imageData);
+
             // Get next available ID
             int newImageId = imageCounter.incrementAndGet();
 
-            // Determine file extension (default to jpg if not provided)
-            String extension = determineExtension(originalExtension);
+            // Always save as JPEG after processing
+            Path imagePath = imagesDirectory.resolve(newImageId + ".jpg");
 
-            // Create file path
-            Path imagePath = imagesDirectory.resolve(newImageId + "." + extension);
+            // Write processed image data
+            Files.write(imagePath, processedImageData);
 
-            // Write image data
-            Files.write(imagePath, imageData);
+            System.out.println("Saved image " + newImageId + ".jpg - " +
+                    "Original size: " + formatFileSize(imageData.length) +
+                    ", Processed size: " + formatFileSize(processedImageData.length) +
+                    " (" + calculateCompressionRatio(imageData.length, processedImageData.length) + "% reduction)");
 
-            System.out.println("Saved new image: " + imagePath.getFileName());
             return newImageId;
 
         } catch (IOException e) {
             System.err.println("Error saving image: " + e.getMessage());
             throw new RuntimeException("Failed to save image", e);
         }
+    }
+
+    private byte[] processImage(byte[] originalImageData) throws IOException {
+        // Load the original image
+        BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(originalImageData));
+        if (originalImage == null) {
+            throw new IllegalArgumentException("Invalid image format");
+        }
+
+        int originalWidth = originalImage.getWidth();
+        int originalHeight = originalImage.getHeight();
+
+        System.out.println("Original image dimensions: " + originalWidth + "x" + originalHeight);
+
+        // Check if resizing is needed
+        BufferedImage processedImage;
+        if (needsResizing(originalWidth, originalHeight)) {
+            processedImage = resizeImage(originalImage);
+            System.out.println("Resized to: " + processedImage.getWidth() + "x" + processedImage.getHeight());
+        } else {
+            processedImage = originalImage;
+            System.out.println("No resizing needed");
+        }
+
+        // Compress to JPEG with specified quality
+        return compressToJpeg(processedImage);
+    }
+
+    private boolean needsResizing(int width, int height) {
+        return width > MAX_WIDTH || height > MAX_HEIGHT;
+    }
+
+    private BufferedImage resizeImage(BufferedImage originalImage) {
+        int originalWidth = originalImage.getWidth();
+        int originalHeight = originalImage.getHeight();
+
+        // Calculate new dimensions while maintaining aspect ratio
+        double widthRatio = (double) MAX_WIDTH / originalWidth;
+        double heightRatio = (double) MAX_HEIGHT / originalHeight;
+        double ratio = Math.min(widthRatio, heightRatio); // Use the smaller ratio to fit within bounds
+
+        int newWidth = (int) (originalWidth * ratio);
+        int newHeight = (int) (originalHeight * ratio);
+
+        // Create resized image with high quality rendering
+        BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = resizedImage.createGraphics();
+
+        // Set high quality rendering hints
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        graphics.drawImage(originalImage, 0, 0, newWidth, newHeight, null);
+        graphics.dispose();
+
+        return resizedImage;
+    }
+
+    private byte[] compressToJpeg(BufferedImage image) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        ImageWriter jpegWriter = ImageIO.getImageWritersByFormatName("jpeg").next();
+        ImageWriteParam jpegParams = jpegWriter.getDefaultWriteParam();
+        jpegParams.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+        jpegParams.setCompressionQuality(JPEG_QUALITY);
+
+        try (ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+            jpegWriter.setOutput(ios);
+            jpegWriter.write(null, new IIOImage(image, null, null), jpegParams);
+        }
+
+        jpegWriter.dispose();
+        return baos.toByteArray();
     }
 
     public int getCurrentCounter() {
@@ -167,22 +262,18 @@ public class ImageRepositoryAdapter implements ImageRepository {
         }
     }
 
-    private String determineExtension(String originalExtension) {
-        if (originalExtension == null || originalExtension.trim().isEmpty()) {
-            return "jpg"; // default
-        }
+    private String formatFileSize(long bytes) {
+        if (bytes < 1024)
+            return bytes + " B";
+        if (bytes < 1024 * 1024)
+            return String.format("%.1f KB", bytes / 1024.0);
+        return String.format("%.1f MB", bytes / (1024.0 * 1024.0));
+    }
 
-        String ext = originalExtension.toLowerCase().trim();
-        if (ext.startsWith(".")) {
-            ext = ext.substring(1);
-        }
-
-        // Validate extension
-        if (ext.equals("jpg") || ext.equals("jpeg") || ext.equals("png")) {
-            return ext;
-        }
-
-        return "jpg"; // fallback to jpg for unsupported formats
+    private int calculateCompressionRatio(long originalSize, long compressedSize) {
+        if (originalSize == 0)
+            return 0;
+        return (int) ((originalSize - compressedSize) * 100 / originalSize);
     }
 
 }

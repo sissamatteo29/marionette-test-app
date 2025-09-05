@@ -1,4 +1,14 @@
+com/outfit/imagestore/di/ImageRepositoryDI.class
+com/outfit/imagestore/usecases/inbound/StoreImageUseCase.class
+com/outfit/imagestore/usecases/inbound/DownloadImageUseCase.class
+com/outfit/imagestore/usecases/inbound/storeimage/StoreImageUseCaseImpl.class
+com/outfit/imagestore/adapters/outbound/imagerepo/ImageRepositoryConfig.class
 com/outfit/imagestore/ImageMetadata.class
+com/outfit/imagestore/adapters/outbound/imagerepo/ImageRepositoryAdapter.class
+com/outfit/imagestore/usecases/inbound/FetchImageNamesUseCase.class
 com/outfit/imagestore/ImageResponse.class
-com/outfit/imagestore/controllers/ImageStoreController.class
+com/outfit/imagestore/usecases/inbound/imagenames/FetchImageNamesUseCaseImpl.class
+com/outfit/imagestore/usecases/outbound/imagerepo/ImageRepository.class
 com/outfit/imagestore/App.class
+com/outfit/imagestore/adapters/inbound/ImageStoreController.class
+com/outfit/imagestore/usecases/inbound/download/DownloadImageUseCaseImpl.class

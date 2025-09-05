@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class ImageRepositoryConfig {
 
-    @Value("${images.storage.path:/app/images}")
+    @Value("${images.storage.path:./images}")
     private String imageStoragePath;
 
     public String getImageStoragePath() {

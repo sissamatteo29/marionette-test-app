@@ -1,4 +1,14 @@
 /home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/App.java
 /home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/ImageMetadata.java
 /home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/ImageResponse.java
-/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/controllers/ImageStoreController.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/adapters/inbound/ImageStoreController.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/adapters/outbound/imagerepo/ImageRepositoryAdapter.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/adapters/outbound/imagerepo/ImageRepositoryConfig.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/di/ImageRepositoryDI.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/usecases/inbound/DownloadImageUseCase.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/usecases/inbound/FetchImageNamesUseCase.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/usecases/inbound/StoreImageUseCase.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/usecases/inbound/download/DownloadImageUseCaseImpl.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/usecases/inbound/imagenames/FetchImageNamesUseCaseImpl.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/usecases/inbound/storeimage/StoreImageUseCaseImpl.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/imagestore-service/src/main/java/com/outfit/imagestore/usecases/outbound/imagerepo/ImageRepository.java

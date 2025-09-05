@@ -32,7 +32,7 @@ public class ImageStoreController {
     }
 
 
-    @GetMapping("/getImages")
+    @GetMapping("/images")
     public ResponseEntity<List<String>> getImageNames() {
         try {
             List<String> imageNames = fetchImageNamesUseCase.execute();

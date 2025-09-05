@@ -5,7 +5,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.net.http.HttpResponse.BodyHandlers;
 import java.time.Duration;
 
 import org.springframework.stereotype.Component;
@@ -16,8 +15,11 @@ import com.outfit.processor.usecases.outbound.fetchimages.FetchImageGateway;
 public class ImageStoreServiceFetchImageAdapter implements FetchImageGateway {
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final ImageStoreServiceFetchImageAdapterConfig config;
 
-    private ImageStoreServiceFetchImageAdapterConfig config;
+    public ImageStoreServiceFetchImageAdapter(ImageStoreServiceFetchImageAdapterConfig config) {
+        this.config = config;
+    }
 
     @Override
     public byte[] fetchImage(String imageName) {

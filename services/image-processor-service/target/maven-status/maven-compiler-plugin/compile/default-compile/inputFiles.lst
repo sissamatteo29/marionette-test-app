@@ -1,3 +1,8 @@
 /home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/image-processor-service/src/main/java/com/outfit/processor/App.java
-/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/image-processor-service/src/main/java/com/outfit/processor/controllers/ImageProcessingController.java
-/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/image-processor-service/src/main/java/com/outfit/processor/controllers/marionette/ImageProcessingController_Marionette.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/image-processor-service/src/main/java/com/outfit/processor/adapters/inbound/ImageProcessingController.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/image-processor-service/src/main/java/com/outfit/processor/adapters/outbound/fetchimages/ImageStoreServiceFetchImageAdapter.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/image-processor-service/src/main/java/com/outfit/processor/adapters/outbound/fetchimages/ImageStoreServiceFetchImageAdapterConfig.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/image-processor-service/src/main/java/com/outfit/processor/usecases/inbound/ProcessImageUseCase.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/image-processor-service/src/main/java/com/outfit/processor/usecases/inbound/processimage/ImageProcessor.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/image-processor-service/src/main/java/com/outfit/processor/usecases/inbound/processimage/ProcessImageUseCaseImpl.java
+/home/matteo/Desktop/MARIONETTE_PROJECT/outfit-app/services/image-processor-service/src/main/java/com/outfit/processor/usecases/outbound/fetchimages/FetchImageGateway.java

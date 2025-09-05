@@ -1,2 +1,4 @@
 
+# Local dev setup
 imagestore: 8082
+image-processor-service: 8081

@@ -1,49 +1,62 @@
 package com.outfit.processor.controllers;
 
-import org.springframework.web.bind.annotation.RequestMapping;
+import javax.imageio.ImageWriter;
 import java.util.concurrent.Executors;
+import javax.imageio.ImageWriteParam;
 import java.awt.image.BufferedImage;
 import org.springframework.http.ResponseEntity;
 import java.io.ByteArrayOutputStream;
+import javax.imageio.stream.ImageOutputStream;
 import java.awt.Graphics2D;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.PathVariable;
 import java.util.concurrent.ExecutorService;
-import java.awt.image.ConvolveOp;
-import java.io.InputStream;
-import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 import com.outfit.common.ProcessedImageResponse;
 import javax.imageio.ImageIO;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.client.RestTemplate;
+import java.awt.image.ConvolveOp;
+import java.io.InputStream;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/process")
 public class ImageProcessingController {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // adjust port
-    private final String imageStoreBaseUrl = "http://localhost:8080";
+    private final String imageStoreBaseUrl;
+
+    public ImageProcessingController(@Value("${image.store.service.url}") String imageStoreBaseUrl) {
+        if (imageStoreBaseUrl == null) {
+            System.out.println("The url to reach the image store is null");
+        }
+        this.imageStoreBaseUrl = imageStoreBaseUrl;
+    }
 
     private final ExecutorService executor = Executors.newFixedThreadPool(4);
 
     @GetMapping("/image/{fileName}")
     public ResponseEntity<byte[]> getProcessedImage(@PathVariable String fileName) {
+        System.out.println("Received request to fetch and process the image " + fileName);
         try {
             byte[] processedBytes = processImageBytes(fileName);
             return ResponseEntity.ok().header("Content-Type", "image/jpeg").body(processedBytes);
         } catch (Exception e) {
+            System.out.println("Exception when processing image " + fileName);
             return ResponseEntity.internalServerError().build();
         }
     }
 
     private byte[] processImageBytes(String fileName) {
         switch(com.outfit.processor.__marionette.BehaviourRegistry.getBehaviourId("com/outfit/processor/controllers/ImageProcessingController.java", "processImageBytes")) {
+            case "super_low_en":
+                return processImageBytes_super_low_en(fileName);
             default:
             case "default":
                 return processImageBytes_default(fileName);
@@ -52,7 +65,7 @@ public class ImageProcessingController {
         }
     }
 
-    @GetMapping
+    @GetMapping("/")
     public ResponseEntity<List<ProcessedImageResponse>> processImages(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "4") int size) {
         // 1. Fetch image metadata (list of filenames)
         String metadataUrl = imageStoreBaseUrl + "/images?page=" + page + "&size=" + size;
@@ -62,8 +75,8 @@ public class ImageProcessingController {
         }
         List<ProcessedImageResponse> results = metadata.stream().map(img -> {
             String fileName = img.get("fileName");
-            // URL that triggers on-demand processing
-            String url = "http://localhost:8081/process/image/" + fileName;
+            // URL that points to root controller endpoint for image access
+            String url = "/image/" + fileName;
             return new ProcessedImageResponse(fileName, url);
         }).collect(Collectors.toList());
         return ResponseEntity.ok(results);
@@ -119,9 +132,67 @@ public class ImageProcessingController {
         return result;
     }
 
+    private byte[] processImageBytes_super_low_en(String fileName) {
+        try {
+            // Fetch image
+            String imageUrl = imageStoreBaseUrl + "/image/" + fileName;
+            Resource resource = restTemplate.getForObject(imageUrl, Resource.class);
+            if (resource == null) {
+                throw new RuntimeException("Could not fetch image: " + fileName);
+            }
+            try (InputStream in = resource.getInputStream();
+                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                BufferedImage original = ImageIO.read(in);
+                if (original == null) {
+                    throw new RuntimeException("Invalid image format: " + fileName);
+                }
+                // 1. Aggressive resize - max 150px, min 25% of original
+                int w = original.getWidth();
+                int h = original.getHeight();
+                double scale = Math.min(Math.min(150.0 / w, 150.0 / h), 0.25);
+                int newW = Math.max(1, (int) (w * scale));
+                int newH = Math.max(1, (int) (h * scale));
+                BufferedImage resized = new BufferedImage(newW, newH, BufferedImage.TYPE_INT_RGB);
+                Graphics2D graphics = resized.createGraphics();
+                graphics.drawImage(original, 0, 0, newW, newH, null);
+                graphics.dispose();
+                // 2. Color quantization - reduce to 16 color levels per channel
+                for (int y = 0; y < newH; y++) {
+                    for (int x = 0; x < newW; x++) {
+                        int rgb = resized.getRGB(x, y);
+                        int r = ((rgb >> 16) & 0xFF) / 16 * 16;
+                        int green = ((rgb >> 8) & 0xFF) / 16 * 16;
+                        int b = (rgb & 0xFF) / 16 * 16;
+                        resized.setRGB(x, y, (r << 16) | (green << 8) | b);
+                    }
+                }
+                // 3. Convert to grayscale
+                BufferedImage gray = new BufferedImage(newW, newH, BufferedImage.TYPE_BYTE_GRAY);
+                Graphics2D g2 = gray.createGraphics();
+                g2.drawImage(resized, 0, 0, null);
+                g2.dispose();
+                // 4. Ultra-low quality JPEG compression
+                ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+                ImageWriteParam param = writer.getDefaultWriteParam();
+                param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                // 10% quality
+                param.setCompressionQuality(0.1f);
+                ImageOutputStream ios = ImageIO.createImageOutputStream(baos);
+                writer.setOutput(ios);
+                writer.write(null, new javax.imageio.IIOImage(gray, null, null), param);
+                writer.dispose();
+                ios.close();
+                return baos.toByteArray();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error processing image " + fileName, e);
+        }
+    }
+
     private byte[] processImageBytes_default(String fileName) {
         try {
             String imageUrl = imageStoreBaseUrl + "/image/" + fileName;
+            System.out.println("Sending request for image out to image store service: " + imageUrl);
             Resource resource = restTemplate.getForObject(imageUrl, Resource.class);
             if (resource == null) {
                 throw new RuntimeException("Could not fetch image: " + fileName);

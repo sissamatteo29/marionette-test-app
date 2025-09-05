@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import javax.imageio.IIOImage;
@@ -74,6 +75,8 @@ public class ImageStoreController {
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
 
+        System.out.println("Retrieved " + allFileNames.size() + " file names from local storage");
+
         // Apply pagination
         int fromIndex = page * size;
         int toIndex = Math.min(fromIndex + size, allFileNames.size());
@@ -88,6 +91,7 @@ public class ImageStoreController {
             images.add(new ImageMetadata(fileName, url));
         }
 
+        System.out.println("Returning image names");
         return ResponseEntity.ok(images);
     }
 
@@ -95,15 +99,15 @@ public class ImageStoreController {
     public ResponseEntity<byte[]> getCompressedThumbnail(@PathVariable("filename") String filename) throws IOException {
 
         System.out.println("Received a request for the image " + filename);
-        Path cachedPath = cacheDir.resolve(filename);
 
-        // If cached version exists, serve it directly
-        if (Files.exists(cachedPath)) {
-            byte[] cachedBytes = Files.readAllBytes(cachedPath);
+        Path cachedPath = cacheDir.resolve(filename);
+        Optional<byte[]> cachedImage = getFromCache(cachedPath);
+
+        if(cachedImage.isPresent()) {
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
                     .contentType(MediaType.IMAGE_JPEG)
-                    .body(cachedBytes);
+                    .body(cachedImage.get());
         }
 
         System.out.println("The file did not exist in the cache, loading it from static resources");
@@ -147,11 +151,27 @@ public class ImageStoreController {
         // Save to cache for next time
         Files.write(cachedPath, compressedBytes);
 
+        System.out.println("Managed to apply compression, sending the image " + filename + " back to client...");
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
                 .contentType(MediaType.IMAGE_JPEG)
                 .body(compressedBytes);
     }
+
+    private Optional<byte[]> getFromCache(Path pathToFileInCache) throws IOException {
+
+        // If cached version exists, serve it directly
+        if (Files.exists(pathToFileInCache)) {
+            byte[] cachedBytes = Files.readAllBytes(pathToFileInCache);
+            return Optional.of(cachedBytes);
+        } else {
+            return Optional.empty();
+        }
+    }
+
+
+
+
 
 
 

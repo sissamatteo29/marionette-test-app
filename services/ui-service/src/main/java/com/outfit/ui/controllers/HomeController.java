@@ -1,8 +1,8 @@
 package com.outfit.ui.controllers;
 
 import java.util.List;
+import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +23,8 @@ public class HomeController {
 
     private final String imageProcessorServiceUrl;
 
+    private final ImageCache imageCache = new ImageCache();
+
     public HomeController(@Value("${image.processor.service.url}") String imageProcessorServiceUrl) {
         this.imageProcessorServiceUrl = imageProcessorServiceUrl;
     }
@@ -35,28 +37,27 @@ public class HomeController {
         try {
             // Call image processor microservice
             String url = imageProcessorServiceUrl + "?page=" + page;
-            ResponseEntity<List<ProcessedImageResponse>> response
-                    = restTemplate.exchange(
-                            url,
-                            org.springframework.http.HttpMethod.GET,
-                            null,
-                            new ParameterizedTypeReference<List<ProcessedImageResponse>>() {}
-                    );
+            System.out.println("Sending request " + url);
+            ResponseEntity<List<ProcessedImageResponse>> response = restTemplate.exchange(
+                    url,
+                    org.springframework.http.HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<List<ProcessedImageResponse>>() {
+                    });
 
             List<ProcessedImageResponse> images = response.getBody();
-            
-            // IMPORTANT: Modify URLs to point to THIS service's proxy endpoint
+
             if (images != null) {
                 images.forEach(img -> {
                     // Extract filename from original URL
                     String originalUrl = img.getUrl();
                     String filename = extractFilenameFromUrl(originalUrl);
-                    
+
                     // Replace with proxy URL
                     img.setUrl("/image-proxy/" + filename);
                 });
             }
-            
+
             model.addAttribute("images", images != null ? images : List.of());
             model.addAttribute("currentPage", page);
             model.addAttribute("hasNextPage", images != null && !images.isEmpty());
@@ -68,9 +69,9 @@ public class HomeController {
             model.addAttribute("hasNextPage", false);
         }
 
-        return "home";
+        return new UIConfig().decideUI();
     }
-    
+
     // NEW: Proxy endpoint that forwards image requests to the imagestore service
     @GetMapping("/image-proxy/{filename}")
     public ResponseEntity<byte[]> proxyImage(@PathVariable String filename) {
@@ -80,17 +81,28 @@ public class HomeController {
         try {
             // Forward request to imagestore service (internal Kubernetes DNS)
             String imageUrl = imageProcessorServiceUrl + "/image/" + filename;
-            
+
+            System.out.println("Verifying if image " + filename + " is in cache");
+            Optional<byte[]> optionalImage = imageCache.getImage(filename);
+
+            if(optionalImage.isPresent()) {
+                return ResponseEntity.ok(optionalImage.get());      // Return from cache
+
+            } else {
+
             ResponseEntity<byte[]> imageResponse = restTemplate.getForEntity(imageUrl, byte[].class);
             
             System.out.println("Successfully proxied image: " + filename + 
                              " (size: " + (imageResponse.getBody() != null ? imageResponse.getBody().length : 0) + " bytes)");
+
+            imageCache.putImage(filename, imageResponse.getBody());
             
             // Forward the complete response back to the browser
             return ResponseEntity.status(imageResponse.getStatusCode())
                     .contentType(imageResponse.getHeaders().getContentType())
                     .headers(h -> h.addAll(imageResponse.getHeaders()))
                     .body(imageResponse.getBody());
+            }
                     
         } catch (RestClientException e) {
             System.err.println("Failed to proxy image " + filename + ": " + e.getMessage());
@@ -100,19 +112,19 @@ public class HomeController {
             return ResponseEntity.internalServerError().build();
         }
     }
-    
+
     // Helper method to extract filename from URL
     private String extractFilenameFromUrl(String url) {
         if (url == null || url.isEmpty()) {
             return "";
         }
-        
+
         // Handle URLs like "/images/photo.jpg" or "/image/photo.jpg"
         int lastSlash = url.lastIndexOf('/');
         if (lastSlash >= 0 && lastSlash < url.length() - 1) {
             return url.substring(lastSlash + 1);
         }
-        
+
         // Fallback: return the whole URL if no slash found
         return url;
     }

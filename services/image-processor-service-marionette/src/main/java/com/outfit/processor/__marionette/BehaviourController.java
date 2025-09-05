@@ -7,11 +7,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/marionette/api")
 public class BehaviourController {
 
     private ConfigurationService configurationService;
@@ -20,13 +19,18 @@ public class BehaviourController {
         this.configurationService = configurationService;
     }
 
+    @GetMapping("/isMarionette")
+    public ResponseEntity<String> validateMarionetteNode() {
+        return ResponseEntity.ok("true");
+    }
+
     @GetMapping("/getBehaviour")
     public String getBehaviour(@RequestParam String className, @RequestParam String methodName) {
         System.out.println("Requested behaviour for class " + className + " and method " + methodName);
         return BehaviourRegistry.getBehaviourId(className, methodName);
     }
 
-    @GetMapping(value = "/getConfiguration")
+    @GetMapping("/getConfiguration")
     public ResponseEntity<String> getConfiguration() {
         System.out.println("Received request to get the marionette configuration");
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(JSONRegistrySerializer.generateJson(BehaviourRegistry.behaviourRegistry, BehaviourRegistry.serviceName));

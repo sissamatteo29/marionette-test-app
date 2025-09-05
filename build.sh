@@ -1,9 +1,6 @@
 #!/bin/bash
 # deploy.sh
 
-kubectl delete namespace outfit-app
-kubectl wait --for=delete namespace/outfit-app --timeout=60s
-
 eval $(minikube docker-env)
 
 echo "Building common code"
@@ -21,14 +18,14 @@ cd ..
 
 # Build imagestore-service  
 echo "Building imagestore-service..."
-cd imagestore-service
+cd imagestore-service-marionette
 mvn clean package
 docker build -t imagestore-service:latest .
 cd ..
 
 # Build ui-service
 echo "Building ui-service..."
-cd ui-service
+cd ui-service-marionette
 mvn clean package  
 docker build -t ui-service:latest .
 cd ..
@@ -39,11 +36,13 @@ docker images | grep -E "(image-processor-service|imagestore-service|ui-service)
 # Deploy to minikube
 cd k8s
 kubectl apply -f namespace.yaml
-kubectl wait --for=condition=Ready namespace/outfit-app --timeout=30s
 
 kubectl apply -f imagestore-service.yaml
 kubectl apply -f image-processor-service-marionette.yaml  
 kubectl apply -f ui-service.yaml
+kubectl rollout restart deployment/image-processor-service -n outfit-app
+kubectl rollout restart deployment/imagestore-service -n outfit-app  
+kubectl rollout restart deployment/ui-service -n outfit-app
 
 echo "Deploying service monitor"
 kubectl apply -f outfit-app-servicemonitor.yaml

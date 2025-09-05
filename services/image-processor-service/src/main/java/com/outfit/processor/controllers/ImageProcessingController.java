@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 import javax.imageio.ImageIO;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,16 +25,24 @@ import org.springframework.web.client.RestTemplate;
 import com.outfit.common.ProcessedImageResponse;
 
 @RestController
-@RequestMapping("/process")
 public class ImageProcessingController {
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final String imageStoreBaseUrl = "http://localhost:8080"; // adjust port
+    private final String imageStoreBaseUrl;
+
+    public ImageProcessingController(@Value("${image.store.service.url}") String imageStoreBaseUrl) {
+        if(imageStoreBaseUrl == null) {
+            System.out.println("The url to reach the image store is null");
+        }
+        this.imageStoreBaseUrl = imageStoreBaseUrl;
+    }
 
     private final ExecutorService executor = Executors.newFixedThreadPool(4);
 
     @GetMapping("/image/{fileName}")
     public ResponseEntity<byte[]> getProcessedImage(@PathVariable String fileName) {
+
+        System.out.println("Received request to fetch and process the image " + fileName);
         try {
             byte[] processedBytes = processImageBytes(fileName);
 
@@ -42,6 +51,7 @@ public class ImageProcessingController {
                     .body(processedBytes);
 
         } catch (Exception e) {
+            System.out.println("Exception when processing image " + fileName);
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -49,6 +59,7 @@ public class ImageProcessingController {
     private byte[] processImageBytes(String fileName) {
         try {
             String imageUrl = imageStoreBaseUrl + "/image/" + fileName;
+            System.out.println("Sending request for image out to image store service: " + imageUrl);
             Resource resource = restTemplate.getForObject(imageUrl, Resource.class);
 
             if (resource == null) {
@@ -72,7 +83,7 @@ public class ImageProcessingController {
         }
     }
 
-    @GetMapping
+    @GetMapping("/")
     public ResponseEntity<List<ProcessedImageResponse>> processImages(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "4") int size) {
@@ -89,8 +100,8 @@ public class ImageProcessingController {
         List<ProcessedImageResponse> results = metadata.stream()
                 .map(img -> {
                     String fileName = img.get("fileName");
-                    // URL that triggers on-demand processing
-                    String url = "http://localhost:8081/process/image/" + fileName;
+                    // URL that points to root controller endpoint for image access
+                    String url = "/image/" + fileName;
                     return new ProcessedImageResponse(fileName, url);
                 })
                 .collect(Collectors.toList());

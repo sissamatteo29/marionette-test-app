@@ -1,0 +1,35 @@
+<marionetteConfig>
+  <microserviceName>imagestore-service</microserviceName>
+  <srcRoot>src/main/java</srcRoot>
+  <injectCodeRoot>com/outfit/imagestore/__marionette</injectCodeRoot>
+
+  <marionetteClasses>
+
+    <marionetteClass>
+      <originalClass>
+        <path>com/outfit/imagestore/controllers/ImageStoreController.java</path>
+        <behaviours>
+          <behaviour>
+            <name>getFromCache</name>
+            <id>useCache</id>
+          </behaviour>
+        </behaviours>
+      </originalClass>
+
+      <variantClasses>
+
+        <variantClass>
+          <path>com/outfit/imagestore/controllers/marionette/ImageStoreController_Marionette_NoCache.java</path>
+          <behaviours>
+            <behaviour>
+              <name>getFromCache</name>
+              <id>noCache</id>
+            </behaviour>
+          </behaviours>
+        </variantClass>
+
+      </variantClasses>
+    </marionetteClass>
+
+  </marionetteClasses>
+</marionetteConfig>

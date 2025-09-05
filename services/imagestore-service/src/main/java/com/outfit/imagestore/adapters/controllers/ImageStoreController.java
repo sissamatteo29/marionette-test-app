@@ -1,4 +1,4 @@
-package com.outfit.imagestore.controllers;
+package com.outfit.imagestore.adapters.controllers;
 
 import java.awt.Graphics2D;
 import java.awt.Image;

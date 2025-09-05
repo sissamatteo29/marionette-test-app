@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -38,54 +39,60 @@ public class ImageRepositoryAdapter implements ImageRepository {
         // Scan existing files to find the highest counter
         int maxCounter = scanForHighestCounter();
         imageCounter.set(maxCounter);
-        
-        System.out.println("Initialized image counter to: " + maxCounter + 
-                          " (found " + countExistingImages() + " existing images)");
+
+        System.out.println("Initialized image counter to: " + maxCounter +
+                " (found " + countExistingImages() + " existing images)");
     }
 
     private int scanForHighestCounter() throws IOException {
         try (Stream<Path> files = Files.list(imagesDirectory)) {
             return files
-                .filter(Files::isRegularFile)
-                .map(path -> path.getFileName().toString())
-                .map(imageFilePattern::matcher)
-                .filter(matcher -> matcher.matches())
-                .mapToInt(matcher -> Integer.parseInt(matcher.group(1)))
-                .max()
-                .orElse(0); // Start from 0 if no images found
+                    .filter(Files::isRegularFile)
+                    .map(path -> path.getFileName().toString())
+                    .map(imageFilePattern::matcher)
+                    .filter(matcher -> matcher.matches())
+                    .mapToInt(matcher -> Integer.parseInt(matcher.group(1)))
+                    .max()
+                    .orElse(0); // Start from 0 if no images found
+        }
+    }
+
+    public List<String> getAllImages() throws IOException {
+        try (Stream<Path> files = Files.list(imagesDirectory)) {
+            return files
+                    .filter(Files::isRegularFile) // Only files, not directories
+                    .map(path -> path.getFileName().toString()) 
+                    .filter(fileName -> imageFilePattern.matcher(fileName).matches()) 
+                    .toList();
         }
     }
 
     private long countExistingImages() throws IOException {
         try (Stream<Path> files = Files.list(imagesDirectory)) {
             return files
-                .filter(Files::isRegularFile)
-                .map(path -> path.getFileName().toString())
-                .filter(fileName -> imageFilePattern.matcher(fileName).matches())
-                .count();
+                    .filter(Files::isRegularFile)
+                    .map(path -> path.getFileName().toString())
+                    .filter(fileName -> imageFilePattern.matcher(fileName).matches())
+                    .count();
         }
     }
 
     @Override
-    public byte[] getImage(int imageId) {
+    public byte[] getImage(String imageName) {
         try {
-            // Try different extensions in order of preference
-            String[] extensions = {"jpg", "jpeg", "png"};
-            
-            for (String extension : extensions) {
-                Path imagePath = imagesDirectory.resolve(imageId + "." + extension);
-                if (Files.exists(imagePath)) {
-                    System.out.println("Found image: " + imagePath.getFileName());
-                    return Files.readAllBytes(imagePath);
-                }
+
+            Path imagePath = imagesDirectory.resolve(imageName);
+            if (Files.exists(imagePath)) {
+                System.out.println("Found image: " + imagePath.getFileName());
+                return Files.readAllBytes(imagePath);
             }
-            
-            System.out.println("Image not found for ID: " + imageId);
+
+            System.out.println("Image not found for name: " + imageName);
             return null; // or throw ImageNotFoundException
-            
+
         } catch (IOException e) {
-            System.err.println("Error reading image " + imageId + ": " + e.getMessage());
-            throw new RuntimeException("Failed to read image: " + imageId, e);
+            System.err.println("Error reading image " + imageName + ": " + e.getMessage());
+            throw new RuntimeException("Failed to read image: " + imageName, e);
         }
     }
 
@@ -94,19 +101,19 @@ public class ImageRepositoryAdapter implements ImageRepository {
         try {
             // Get next available ID
             int newImageId = imageCounter.incrementAndGet();
-            
+
             // Determine file extension (default to jpg if not provided)
             String extension = determineExtension(originalExtension);
-            
+
             // Create file path
             Path imagePath = imagesDirectory.resolve(newImageId + "." + extension);
-            
+
             // Write image data
             Files.write(imagePath, imageData);
-            
+
             System.out.println("Saved new image: " + imagePath.getFileName());
             return newImageId;
-            
+
         } catch (IOException e) {
             System.err.println("Error saving image: " + e.getMessage());
             throw new RuntimeException("Failed to save image", e);
@@ -127,8 +134,8 @@ public class ImageRepositoryAdapter implements ImageRepository {
     }
 
     public boolean imageExists(int imageId) {
-        String[] extensions = {"jpg", "jpeg", "png"};
-        
+        String[] extensions = { "jpg", "jpeg", "png" };
+
         for (String extension : extensions) {
             Path imagePath = imagesDirectory.resolve(imageId + "." + extension);
             if (Files.exists(imagePath)) {
@@ -140,8 +147,8 @@ public class ImageRepositoryAdapter implements ImageRepository {
 
     public boolean deleteImage(int imageId) {
         try {
-            String[] extensions = {"jpg", "jpeg", "png"};
-            
+            String[] extensions = { "jpg", "jpeg", "png" };
+
             for (String extension : extensions) {
                 Path imagePath = imagesDirectory.resolve(imageId + "." + extension);
                 if (Files.exists(imagePath)) {
@@ -150,10 +157,10 @@ public class ImageRepositoryAdapter implements ImageRepository {
                     return true;
                 }
             }
-            
+
             System.out.println("Image not found for deletion: " + imageId);
             return false;
-            
+
         } catch (IOException e) {
             System.err.println("Error deleting image " + imageId + ": " + e.getMessage());
             throw new RuntimeException("Failed to delete image: " + imageId, e);
@@ -164,18 +171,18 @@ public class ImageRepositoryAdapter implements ImageRepository {
         if (originalExtension == null || originalExtension.trim().isEmpty()) {
             return "jpg"; // default
         }
-        
+
         String ext = originalExtension.toLowerCase().trim();
         if (ext.startsWith(".")) {
             ext = ext.substring(1);
         }
-        
+
         // Validate extension
         if (ext.equals("jpg") || ext.equals("jpeg") || ext.equals("png")) {
             return ext;
         }
-        
+
         return "jpg"; // fallback to jpg for unsupported formats
     }
-    
+
 }

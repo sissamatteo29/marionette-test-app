@@ -9,8 +9,8 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 10Gi  # Adjust size based on your needs
-  storageClassName: standard  # Use your cluster's default storage class
+      storage: 2Gi  
+  storageClassName: standard  
 ---
 apiVersion: apps/v1
 kind: Deployment

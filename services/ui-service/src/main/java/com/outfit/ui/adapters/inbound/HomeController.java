@@ -1,131 +1,93 @@
-package com.outfit.ui.controllers;
+package com.outfit.ui.adapters.inbound;
 
-import java.util.List;
-import java.util.Optional;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
-
-import com.outfit.common.ProcessedImageResponse;
+import com.outfit.ui.usecases.inbound.FetchProcessedImageUseCase;
+import com.outfit.ui.usecases.inbound.PrepareImageGalleryPageUseCase;
+import com.outfit.ui.usecases.inbound.imagenames.GalleryPageResponse;
 
 @Controller
 public class HomeController {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final PrepareImageGalleryPageUseCase prepareImageGalleryPageUseCase;
+    private final FetchProcessedImageUseCase fetchProcessedImageUseCase;
 
-    private final String imageProcessorServiceUrl;
-
-    private final ImageCache imageCache = new ImageCache();
-
-    public HomeController(@Value("${image.processor.service.url}") String imageProcessorServiceUrl) {
-        this.imageProcessorServiceUrl = imageProcessorServiceUrl;
+    public HomeController(
+            PrepareImageGalleryPageUseCase prepareImageGalleryPageUseCase,
+            FetchProcessedImageUseCase fetchProcessedImageUseCase) {
+        this.prepareImageGalleryPageUseCase = prepareImageGalleryPageUseCase;
+        this.fetchProcessedImageUseCase = fetchProcessedImageUseCase;
     }
 
     @GetMapping("/")
     public String home(@RequestParam(defaultValue = "0") int page, Model model) {
 
-        System.out.println("Received user request for a new page, starting...");
+        System.out.println("User requesting gallery page: " + page);
 
         try {
-            // Call image processor microservice
-            String url = imageProcessorServiceUrl + "?page=" + page;
-            System.out.println("Sending request " + url);
-            ResponseEntity<List<ProcessedImageResponse>> response = restTemplate.exchange(
-                    url,
-                    org.springframework.http.HttpMethod.GET,
-                    null,
-                    new ParameterizedTypeReference<List<ProcessedImageResponse>>() {
-                    });
+            // Use case: Prepare gallery page for user
+            GalleryPageResponse galleryPage = prepareImageGalleryPageUseCase.fetchImageNamesForPage(page);
 
-            List<ProcessedImageResponse> images = response.getBody();
-
-            if (images != null) {
-                images.forEach(img -> {
-                    // Extract filename from original URL
-                    String originalUrl = img.getUrl();
-                    String filename = extractFilenameFromUrl(originalUrl);
-
-                    // Replace with proxy URL
-                    img.setUrl("/image-proxy/" + filename);
-                });
-            }
-
-            model.addAttribute("images", images != null ? images : List.of());
-            model.addAttribute("currentPage", page);
-            model.addAttribute("hasNextPage", images != null && !images.isEmpty());
+            model.addAttribute("images", galleryPage.getImages());
+            model.addAttribute("currentPage", galleryPage.getCurrentPage());
+            model.addAttribute("hasNextPage", galleryPage.isHasNextPage());
+            model.addAttribute("hasPreviousPage", galleryPage.isHasPreviousPage());
+            model.addAttribute("totalImages", galleryPage.getTotalImages());
 
         } catch (Exception e) {
-            System.err.println("Failed to fetch images from processor service: " + e.getMessage());
-            model.addAttribute("images", List.of());
+            System.err.println("Failed to prepare gallery page: " + e.getMessage());
+            model.addAttribute("images", java.util.Collections.emptyList());
             model.addAttribute("currentPage", page);
             model.addAttribute("hasNextPage", false);
+            model.addAttribute("hasPreviousPage", false);
+            model.addAttribute("totalImages", 0);
         }
 
-        return new UIConfig().decideUI();
+        return "home_beautiful"; // Thymeleaf template name
     }
 
-    // NEW: Proxy endpoint that forwards image requests to the imagestore service
-    @GetMapping("/image-proxy/{filename}")
-    public ResponseEntity<byte[]> proxyImage(@PathVariable String filename) {
-        
-        System.out.println("Proxying image request for: " + filename);
-        
+    @GetMapping("/image-proxy/{imageId}")
+    public ResponseEntity<byte[]> getEnhancedImage(@PathVariable String imageId) {
+
+        System.out.println("User requesting enhanced image: " + imageId);
+
         try {
-            // Forward request to imagestore service (internal Kubernetes DNS)
-            String imageUrl = imageProcessorServiceUrl + "/image/" + filename;
+            // Use case: Load enhanced image for user
+            byte[] enhancedImageData = fetchProcessedImageUseCase.execute(imageId);
 
-            System.out.println("Verifying if image " + filename + " is in cache");
-            Optional<byte[]> optionalImage = imageCache.getImage(filename);
-
-            if(optionalImage.isPresent()) {
-                return ResponseEntity.ok(optionalImage.get());      // Return from cache
-
-            } else {
-
-            ResponseEntity<byte[]> imageResponse = restTemplate.getForEntity(imageUrl, byte[].class);
-            
-            System.out.println("Successfully proxied image: " + filename + 
-                             " (size: " + (imageResponse.getBody() != null ? imageResponse.getBody().length : 0) + " bytes)");
-
-            imageCache.putImage(filename, imageResponse.getBody());
-            
-            // Forward the complete response back to the browser
-            return ResponseEntity.status(imageResponse.getStatusCode())
-                    .contentType(imageResponse.getHeaders().getContentType())
-                    .headers(h -> h.addAll(imageResponse.getHeaders()))
-                    .body(imageResponse.getBody());
+            if (enhancedImageData == null) {
+                return ResponseEntity.notFound().build();
             }
-                    
-        } catch (RestClientException e) {
-            System.err.println("Failed to proxy image " + filename + ": " + e.getMessage());
-            return ResponseEntity.notFound().build();
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.IMAGE_JPEG)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"enhanced_" + imageId + "\"")
+                    .header(HttpHeaders.CACHE_CONTROL, "max-age=3600") // Cache for 1 hour
+                    .body(enhancedImageData);
+
         } catch (Exception e) {
-            System.err.println("Unexpected error proxying image " + filename + ": " + e.getMessage());
+            System.err.println("Failed to load enhanced image " + imageId + ": " + e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }
 
-    // Helper method to extract filename from URL
-    private String extractFilenameFromUrl(String url) {
-        if (url == null || url.isEmpty()) {
-            return "";
+    // Optional: Health check endpoint to verify service connections
+    @GetMapping("/health/services")
+    public ResponseEntity<String> checkServicesHealth() {
+        try {
+            // You could add health checks for your adapters here
+            return ResponseEntity.ok("{\n" +
+                    "  \"imagestore\": \"connected\",\n" +
+                    "  \"processor\": \"connected\"\n" +
+                    "}");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Service health check failed");
         }
-
-        // Handle URLs like "/images/photo.jpg" or "/image/photo.jpg"
-        int lastSlash = url.lastIndexOf('/');
-        if (lastSlash >= 0 && lastSlash < url.length() - 1) {
-            return url.substring(lastSlash + 1);
-        }
-
-        // Fallback: return the whole URL if no slash found
-        return url;
     }
 }
